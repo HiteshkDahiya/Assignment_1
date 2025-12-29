@@ -1,0 +1,11 @@
+**/.venv
+**/.venv/
+**/.env  
+__pycache__
+*.db
+.idea
+.vscode
+agent_memory_db/
+db/
+chroma_db/
+my_agent_data.db
