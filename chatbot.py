@@ -27,11 +27,9 @@ from pdfminer.high_level import extract_text
 
 
 
-# Load env vars
 load_dotenv()
 groq_api_key = os.getenv("GROQ_API_KEY")
 
-# FastAPI app
 app = FastAPI(
     title="AutoGen Guardrail API",
     description="Classifies queries into meta_query or attack_query",
@@ -45,12 +43,10 @@ class ChatMessage(BaseModel):
     role: str        
     content: str
 
-# Request schema
 class QueryRequest(BaseModel):
     session_id: str
     query: str
 
-# Response schema
 class QueryResponse(BaseModel):
     classification: str
     answer: str
@@ -97,11 +93,8 @@ def load_pdf_text(pdf_path: str) -> str:
 
     text = "\n".join(text_parts)
 
-    # 1. Remove null bytes
     text = text.replace("\x00", "")
 
-    # 2. Collapse all weird whitespace/tabs/newlines into single spaces
-    # Fixes: "A   manual   process" and word-per-line issues
     text = re.sub(r'\s+', ' ', text)
 
     return text.strip()
@@ -109,7 +102,6 @@ def load_pdf_text(pdf_path: str) -> str:
 
 
 def chunk_text(text: str, chunk_size=1000, overlap=200):
-    # 1. Clean the text first (collapses multiple spaces/newlines)
     text = re.sub(r'\s+', ' ', text).strip()
     
     chunks = []
@@ -119,10 +111,7 @@ def chunk_text(text: str, chunk_size=1000, overlap=200):
     while start < text_len:
         end = start + chunk_size
         
-        # If we aren't at the end of the text, try to find a better 
-        # place to cut than just the middle of a word.
         if end < text_len:
-            # Look for the last space within the last 50 characters of the chunk
             last_space = text.rfind(' ', end - 50, end)
             if last_space != -1:
                 end = last_space
@@ -131,7 +120,6 @@ def chunk_text(text: str, chunk_size=1000, overlap=200):
         if chunk:
             chunks.append(chunk)
             
-        # Move start point back by the overlap
         start = end - overlap
         
     return chunks
@@ -181,7 +169,6 @@ async def retrieve_context(
     cleaned_chunks = []
 
     for item in response.results:
-        # Handle the tuple or object return from AutoGen
         if isinstance(item, tuple):
             memory, score = item
             if score < score_threshold:
@@ -190,15 +177,12 @@ async def retrieve_context(
         else:
             content = item.content
 
-        # This collapses all newlines and multiple spaces into a single space
         normalized = " ".join(content.split())
 
         if normalized not in seen:
             seen.add(normalized)
-            # CHANGE: Append the 'normalized' version, not the raw 'content'
             cleaned_chunks.append(normalized)
 
-    # Join with double newlines for readability between different chunks
     return "\n\n".join(cleaned_chunks)
 
 
@@ -586,7 +570,6 @@ DOCUMENT CONTEXT:
         messages = [TextMessage(content=user_input, source="user")]
         agent = attack_agent
 
-    # 5️⃣ Call agent
     response = await agent.on_messages(
         messages=messages,
         cancellation_token=None,
@@ -594,7 +577,6 @@ DOCUMENT CONTEXT:
 
     assistant_reply = response.chat_message.content
 
-    # 6️⃣ Save history
     history.append({"role": "user", "content": user_input})
     history.append({"role": "assistant", "content": assistant_reply})
     history[:] = history[-MAX_HISTORY:]
