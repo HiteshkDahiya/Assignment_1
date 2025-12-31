@@ -9,3 +9,5 @@ agent_memory_db/
 db/
 chroma_db/
 my_agent_data.db
+vector_store
+docs
