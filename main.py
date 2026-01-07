@@ -20,6 +20,7 @@ from agents import (
     followup_agent,
     demo_agent,
     attack_agent,
+    validator_agent,
 )
 
 from pydantic import BaseModel
@@ -48,11 +49,6 @@ SESSION_STORE = defaultdict(list)
 BASE_DIR = Path(__file__).resolve().parent
 PERSIST_DIR = BASE_DIR / "vector_store"
 
-
-
-def get_current_time() -> str:  
-    now = datetime.datetime.now()
-    return now.strftime("%I:%M %p")
 
 def build_chat_context(history: List[dict], max_turns=5):
     recent = history[-(max_turns * 2):]
@@ -123,7 +119,13 @@ async def chat(request: QueryRequest):
         messages=[TextMessage(content=user_input, source="user")],
         cancellation_token=None,
     )
-    classification = guard_response.chat_message.content.strip()
+    # classification = guard_response.chat_message.content.strip()
+
+    raw_guard = (guard_response.chat_message.content or "").strip()
+    try:
+        classification = json.loads(raw_guard).get("classification")
+    except json.JSONDecodeError:
+        classification = raw_guard or "attack_query"
 
     chat_context = build_chat_context(history)
     doc_context = ""
@@ -171,9 +173,14 @@ async def chat(request: QueryRequest):
         print("&"*30)
 
 
-        intent_json = json.loads(intent_response.chat_message.content)
-        intent = intent_json["intent"]
-    
+        # intent_json = json.loads(intent_response.chat_message.content)
+        # intent = intent_json["intent"]
+        
+        raw_intent = (intent_response.chat_message.content or "").strip()
+        try:
+            intent = json.loads(raw_intent).get("intent")
+        except json.JSONDecodeError:
+            intent = "sales"
    
         if intent == "sales":
             agent = sales_agent
@@ -190,21 +197,13 @@ async def chat(request: QueryRequest):
                 TextMessage(content=user_input, source="user"),  
             ]
     
-        elif intent == "booking_demo":
+        else:
             agent = demo_agent
             messages = [
                 history_message,
                 TextMessage(content=user_input, source="user"),  
             ]
-    
-        else:
-            agent = sales_agent
-            messages = [
-                doc_message,
-                history_message,
-                TextMessage(content=user_input, source="user"),
-            ]
-    
+
     else:
         agent = attack_agent
         messages = [
