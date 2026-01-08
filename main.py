@@ -20,7 +20,6 @@ from agents import (
     followup_agent,
     demo_agent,
     attack_agent,
-    validator_agent,
 )
 
 from pydantic import BaseModel
